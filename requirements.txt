@@ -1,0 +1,32 @@
+# 音频处理 & 语音识别
+requests
+SpeechRecognition
+PyAudio
+pycaw ; platform_system=="Windows" # 用于Windows音量控制
+pvporcupine
+
+# LLM Services - General
+# Note: Specific SDKs are used by their respective service modules.
+# 'requests' is a general dependency used by some LLM services (e.g., Tongyi) and other parts of the application.
+openai>=1.0.0
+anthropic>=0.5.0
+google-generativeai>=0.3.0
+
+# Text-to-Speech (TTS)
+pyttsx3
+
+# GUI & System Tray
+PyQt6
+Pillow
+pystray
+PyAutoGUI
+
+# Windows Specific OS Interaction
+pywin32
+PyGetWindow
+
+# 注意：某些库可能需要额外的系统依赖项
+# 例如，PortAudio (PyAudio) 和 Porcupine 可能需要特定的库文件。
+
+# Optional for Azure Cognitive Services (Speech, etc.)
+# azure-cognitiveservices-speech

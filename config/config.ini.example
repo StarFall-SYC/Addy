@@ -1,0 +1,209 @@
+# Addy 语音助手 - 配置文件示例
+# 请将此文件复制为 'config.ini' 并填入您的详细信息。
+
+[General]
+# 自动语音识别 (ASR) 和文本转语音 (TTS) 的默认语言 (例如: zh-CN, en-US)
+language = zh-CN
+
+# 唤醒词设置
+wake_word_engine = porcupine # 可选: snowboy, 或 custom (自定义)
+# 对于 Porcupine，您可以列出多个关键词，用逗号分隔
+# wake_words = addy你好, 嘿addy
+wake_words = addy你好
+
+[Porcupine]
+# 如果 wake_word_engine 设置为 porcupine，则此部分为必需
+# 从 Picovoice Console 获取您的免费 API 密钥: https://console.picovoice.ai/
+access_key = YOUR_PORCUPINE_ACCESS_KEY_HERE
+# Porcupine 库文件路径 (.dll, .so, .dylib)
+# 如果不是通过 pip 包安装的，请从 Picovoice GitHub 下载
+# library_path = path/to/your/pvporcupine/lib/windows/amd64/libpv_porcupine.dll
+# Porcupine 模型文件路径 (.pv)
+# model_path = path/to/your/pvporcupine/lib/common/porcupine_params.pv
+# 关键词文件路径 (.ppn)。如果 wake_words 中有多个关键词，请用逗号分隔多个路径。
+# keyword_paths = path/to/your/addy_你好_windows.ppn, path/to/your/hey_addy_windows.ppn
+# 每个关键词的灵敏度 (0.0 到 1.0)。如果为多个关键词设置，请用逗号分隔。
+# sensitivities = 0.6, 0.65
+
+[Snowboy]
+# 如果 wake_word_engine 设置为 snowboy，则此部分为必需
+# Snowboy 通用模型路径 (例如: common.res)
+# snowboy_common_model = path/to/your/snowboy/resources/common.res
+# Snowboy 个人模型路径 (.pmdl 或 .umdl)
+# snowboy_personal_model = path/to/your/addy你好.pmdl
+# 灵敏度
+# sensitivity = 0.5
+# 音频增益
+# audio_gain = 1.0
+
+[AzureSpeech]
+# 如果使用 Azure 进行 ASR 或 TTS，则此部分为必需
+# 从 Azure 门户获取 (认知服务 -> 语音服务)
+speech_key = YOUR_AZURE_SPEECH_KEY
+service_region = YOUR_AZURE_SERVICE_REGION # 例如: eastus, chinaeast2
+
+[TTS]
+# 首选的 TTS 引擎: azure, pyttsx3
+tts_engine = pyttsx3
+# 对于 pyttsx3，如果默认语音效果不佳，您可能需要指定一个语音 ID
+# 可以使用辅助脚本列出可用的语音。语音 ID 可能是一个长字符串。
+# pyttsx3_voice_id = HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Speech\Voices\Tokens\TTS_MS_ZH-CN_HUILI_11.0
+
+[Paths]
+# 可选: 定义日志文件、自定义命令脚本等的路径
+log_file = addy_assistant.log
+
+# 截图文件保存目录 (如果未在指令中指定路径)
+screenshots_dir = ./screenshots
+
+# 自定义脚本目录
+# custom_scripts_dir = ./scripts
+
+# --- 以下为从 config_tools_example.ini 合并的 Paths 配置 ---
+# 数据存储目录
+data_dir = data
+# 日志文件目录 (注意: 上方已有 log_file, 此处的 log_dir 是目录)
+log_dir = logs
+# 临时文件目录
+temp_dir = temp
+# 截图保存目录 (注意: 上方已有 screenshots_dir, 此处是重复但来自工具配置)
+# screenshots_dir = screenshots # 此行与上方重复，保留上方主配置的定义，此处注释掉或按需选择
+
+[ASR]
+# 唤醒词检测后，单次聆听指令的超时时间 (秒) - 用于 listen_and_recognize
+command_listen_timeout = 5
+# 单个指令语音片段的最大时长 (秒) - 用于 listen_and_recognize
+command_phrase_time_limit = 10
+
+# --- 连续聆听设置 (用于唤醒后的指令捕获) ---
+# 连续聆听的最大录制时长 (秒)
+continuous_max_record_seconds = 30
+# 判断语音结束的静默阈值 (秒)
+continuous_silence_threshold = 1.0
+# 连续聆听时，单次捕获音频片段的最大时长 (秒)
+continuous_phrase_time_limit = 5
+
+[NLP]
+# 自然语言处理引擎选择
+# 可选值: rule_based, llm
+# rule_based: 使用内置的基于正则表达式的规则系统进行意图识别。
+# llm: 使用大型语言模型进行意图识别 (需要额外配置相关的LLM服务)。
+engine = rule_based
+
+# 当使用LLM引擎时，指定要使用的LLM服务配置节的名称
+# 默认为 [LLM_Service]，您也可以自定义，但需要确保下面存在对应的配置节
+llm_service_config_section = LLM_Service
+
+[LLM_Service]
+# 通用 LLM 服务配置
+# api_type: 用于指定API的类型，以便代码进行兼容性处理。
+# 可选值: openai_compatible (适用于OpenAI及兼容API), anthropic, tongyi, gemini, custom (自定义, 可能需要修改代码以支持)
+api_type = openai_compatible
+
+# API 密钥
+api_key = YOUR_LLM_API_KEY
+
+# 模型名称 (例如: gpt-3.5-turbo, claude-3-haiku-20240307, qwen-turbo, gemini-pro)
+model = gpt-3.5-turbo
+
+# 可选: 自定义API基础URL (例如: https://api.openai.com/v1, https://api.anthropic.com/v1, 等)
+# 如果您的服务商提供了不同的API端点，或者您使用了代理服务，请在此处配置
+# api_base = 
+
+# --- 以下为不同类型API的特定配置示例，您可以根据您的 api_type 和服务商文档进行调整 ---
+
+# 如果 api_type = anthropic, 可能需要额外的头部信息，例如:
+# anthropic_version = 2023-06-01
+
+# 如果 api_type = custom, 您可能需要在这里添加更多自定义参数
+# custom_param1 = value1
+
+[Miscellaneous]
+# 启用或禁用调试日志记录 (True/False)
+debug_mode = False
+
+# -----------------------------------------------------------------------------
+
+[Tools]
+# 启用的工具列表（用逗号分隔）
+enabled_tools = file_tool,system_tool,web_tool,calculator_tool,weather_tool,email_tool,calendar_tool
+
+# 工具日志级别
+log_level = INFO
+
+[FileTool]
+# 文件操作的默认目录
+default_directory = C:\Users\ZhuanZ\Documents
+# 允许的文件扩展名（用逗号分隔，留空表示允许所有）
+allowed_extensions = .txt,.doc,.docx,.pdf,.jpg,.png,.mp3,.mp4
+# 最大文件大小（MB）
+max_file_size = 100
+
+[SystemTool]
+# 是否允许系统关机/重启操作
+allow_shutdown = false
+# 是否允许进程管理操作
+allow_process_management = true
+# 系统信息刷新间隔（秒）
+info_refresh_interval = 5
+
+[WebTool]
+# HTTP请求超时时间（秒）
+request_timeout = 30
+# 用户代理字符串
+user_agent = Addy-Assistant/1.0
+# 最大下载文件大小（MB）
+max_download_size = 500
+# 默认下载目录
+default_download_dir = C:\Users\ZhuanZ\Downloads
+
+[CalculatorTool]
+# 计算精度（小数位数）
+precision = 10
+# 是否启用科学计算功能
+enable_scientific = true
+# 货币转换API密钥（如果需要实时汇率）
+currency_api_key = your_currency_api_key_here
+
+[WeatherTool]
+# OpenWeatherMap API密钥
+api_key = your_openweathermap_api_key_here
+# 默认城市
+default_city = Beijing
+# 温度单位（metric, imperial, kelvin）
+temperature_unit = metric
+# 语言设置
+language = zh_cn
+
+[EmailTool]
+# SMTP服务器设置
+smtp_server = smtp.gmail.com
+smtp_port = 587
+smtp_use_tls = true
+# IMAP服务器设置
+imap_server = imap.gmail.com
+imap_port = 993
+imap_use_ssl = true
+# 邮箱账户（需要用户配置）
+email_address = your_email@gmail.com
+email_password = your_app_password_here
+# 邮件检查间隔（分钟）
+check_interval = 5
+
+[CalendarTool]
+# 日历数据存储文件
+calendar_file = data/calendar.json
+# 默认提醒时间（分钟）
+default_reminder_minutes = 15
+# 时区设置
+timezone = Asia/Shanghai
+# 日期格式
+date_format = %%Y-%%m-%%d %%H:%%M
+
+[Security]
+# 是否启用操作确认
+require_confirmation = true
+# 危险操作列表（需要额外确认）
+dangerous_operations = delete_file,kill_process,shutdown_system,restart_system
+# 文件访问限制目录
+restricted_directories = C:\Windows\System32,C:\Program Files

@@ -117,13 +117,33 @@ class NLPModule:
             },
             # Desktop Control Intents
             {
+                'intent': 'lock_screen',
+                'pattern': r"(锁屏|锁定屏幕|锁住电脑)",
+                'entities': {},
+                'confidence_threshold': 0.9
+            },
+            {
+                'intent': 'take_screenshot',
+                'pattern': r"(截屏|截图|截个图|屏幕截图)",
+                'entities': {},
+                'confidence_threshold': 0.9
+            },
+            {
+                'intent': 'take_screenshot', # Added a second pattern for more general screenshot commands
+                'pattern': r"(截取|捕捉)(?:当前)?(?:屏幕|画面)",
+                'entities': {},
+                'confidence_threshold': 0.9
+            },
+            {
                 'intent': 'capture_screen',
                 'pattern': r"(截屏|截图|屏幕截图|截个图)(?:并保存为)?\s*([\w\-\.]+)?(?:到)?\s*([\d,]+)?",
                 'entity_extractors': {'filename': 2, 'region': 3} # region e.g., "0,0,800,600"
             },
             {
                 'intent': 'capture_screen',
-                'pattern': r"(截屏|截图|屏幕截图|截个图)"
+                'pattern': r"(截屏|截图|屏幕截图|截个图)",
+                'entities': {},
+                'confidence_threshold': 0.8 # Lower confidence for generic capture
             },
             {
                 'intent': 'move_mouse',
@@ -163,12 +183,17 @@ class NLPModule:
             # File Operations
             {
                 'intent': 'create_file',
+                'pattern': r"(创建|新建)(?:一个)?文件\s*(.+?)\s*(?:内容为|内容是)\s*(.+)", # Matches '创建文件 A 内容为 B'
+                'entity_extractors': {'filename': 2, 'content': 3}
+            },
+            {
+                'intent': 'create_file',
                 'pattern': r"(创建|新建)(?:一个)?文件\s*(.+?)(?:在|到)\s*(.+)",
                 'entity_extractors': {'filename': 2, 'path': 3}
             },
             {
                 'intent': 'create_file',
-                'pattern': r"(创建|新建)(?:一个)?文件\s*(.+)",
+                'pattern': r"(创建|新建)(?:一个)?文件\s*(.+)", # General case, filename only
                 'entity_extractors': {'filename': 2}
             },
             {
@@ -315,6 +340,28 @@ class NLPModule:
                 'intent': 'get_date_info',
                 'pattern': r"(今天|明天|后天)是(?:几号|什么日期|星期几)"
             },
+            # System Power Management
+            {
+                'intent': 'shutdown_system',
+                'pattern': r'(?:设置|在|于)?(\d+)\s*(分钟|小时|秒钟?)后(?:(强制)?)(关机|重启|注销|睡眠|休眠)(?:并取消)?',
+                'entity_extractors': {
+                    'time': 1,
+                    'unit': 2,
+                    'force': lambda m: bool(m.group(3)),
+                    'action': 4,
+                    'cancel': lambda m: '取消' in m.group(0)
+                }
+            },
+            {
+                'intent': 'shutdown_system',
+                'pattern': r'^(?:立即|马上)?取消(?:计划的|定时)?(关机|重启|注销|睡眠|休眠|系统操作|计划任务|定时操作)$',
+                'entity_extractors': {
+                    'cancel': lambda m: True,
+                    'action': lambda m: m.group(1) if m.group(1) else 'shutdown',
+                    'time': lambda m: '0',
+                    'unit': lambda m: '秒钟'
+                }
+            },
             # Web Operations
             {
                 'intent': 'download_file',
@@ -348,10 +395,17 @@ class NLPModule:
         processed_text = text_input.lower().strip()
         intent_data = {'intent': 'unknown', 'entities': {}, 'original_text': text_input, 'engine': 'rule_based'}
 
-        for item in self.intent_patterns:
+        # Iterate over patterns in reverse to prioritize more specific (often later defined) patterns.
+        # This assumes more specific patterns are added later or have more components.
+        final_intent_data = {'intent': 'unknown', 'entities': {}, 'original_text': text_input, 'engine': 'rule_based'}
+        # Temp storage for the best match found so far
+        best_match_info = {'intent': 'unknown', 'entities': {}, 'match_score': -1}
+
+        for item in reversed(self.intent_patterns): # Process in reverse to check specific patterns first
             match = re.search(item['pattern'], processed_text, re.IGNORECASE)
             if match:
-                intent_data['intent'] = item['intent']
+                current_entities = {}
+                has_content_entity = False
                 if 'entity_extractors' in item:
                     for entity_name, extractor_config in item['entity_extractors'].items():
                         raw_entity_match = None
@@ -359,30 +413,35 @@ class NLPModule:
                             group_index, normalizer_func = extractor_config
                             if group_index <= match.re.groups:
                                 raw_entity_match = match.group(group_index)
-                            
-                            if raw_entity_match is not None:
-                                intent_data['entities'][entity_name] = normalizer_func(raw_entity_match) if normalizer_func else raw_entity_match.strip()
-                            else:
-                                intent_data['entities'][entity_name] = None
-                        elif isinstance(extractor_config, int): # Direct group index
+                            current_entities[entity_name] = normalizer_func(raw_entity_match) if raw_entity_match and normalizer_func else (raw_entity_match.strip() if raw_entity_match else None)
+                        elif isinstance(extractor_config, int):
                             if extractor_config <= match.re.groups:
                                 raw_entity_match = match.group(extractor_config)
-                            
-                            if raw_entity_match is not None:
-                                intent_data['entities'][entity_name] = raw_entity_match.strip()
-                            else:
-                                intent_data['entities'][entity_name] = None
-                        elif callable(extractor_config): # Lambda function for more complex extraction
+                            current_entities[entity_name] = raw_entity_match.strip() if raw_entity_match else None
+                        elif callable(extractor_config):
                             try:
-                                intent_data['entities'][entity_name] = extractor_config(match)
+                                current_entities[entity_name] = extractor_config(match)
                             except IndexError:
-                                # Handle cases where lambda might access a group that didn't match
-                                intent_data['entities'][entity_name] = None
-                        else:
-                            # Fallback or error for unhandled extractor_config types
-                            intent_data['entities'][entity_name] = None
-                break 
-        return intent_data
+                                current_entities[entity_name] = None
+                        if entity_name == 'content' and current_entities.get('content') is not None:
+                            has_content_entity = True
+                
+                # Scoring: Prioritize matches that extract a 'content' entity for 'create_file'
+                # Otherwise, prioritize longer overall matches.
+                current_match_score = len(match.group(0))
+                if item['intent'] == 'create_file' and has_content_entity:
+                    current_match_score += 1000 # High bonus for 'content' entity in create_file
+
+                if current_match_score > best_match_info['match_score']:
+                    best_match_info['intent'] = item['intent']
+                    best_match_info['entities'] = current_entities
+                    best_match_info['match_score'] = current_match_score
+        
+        if best_match_info['intent'] != 'unknown':
+            final_intent_data['intent'] = best_match_info['intent']
+            final_intent_data['entities'] = best_match_info['entities']
+            
+        return final_intent_data
 
     def _parse_intent_llm(self, text_input):
         """Parses intent using the provided LLM service."""

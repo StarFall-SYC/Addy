@@ -45,3 +45,7 @@ ehthumbs.db
 secrets/
 config.ini
 credentials.json
+
+# Other
+*.ppn
+*.dll

@@ -77,27 +77,47 @@ class FileTool(BaseTool):
             
     def _create_file(self, entities: Dict[str, Any]) -> str:
         """创建文件"""
-        validation_error = self.validate_entities(['file_path'], entities)
-        if validation_error:
-            self.speak(validation_error)
-            return f"error: {validation_error}"
-            
-        file_path = entities['file_path']
+        file_path_entity = entities.get('file_path')
+        filename_entity = entities.get('filename')
         content = entities.get('content', '')
-        
+
+        if not file_path_entity and not filename_entity:
+            self.speak("需要提供文件路径或文件名。")
+            return "error: missing_file_path_or_filename"
+
+        final_file_path_str = ""
+        if file_path_entity:
+            final_file_path_str = file_path_entity
+        elif filename_entity:
+            default_dir = self.config.get('FileTool', 'default_directory', fallback=str(Path.home() / 'Documents'))
+            try:
+                Path(default_dir).mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                self.logger.warning(f"无法创建或访问默认目录 {default_dir}: {e}")
+                # Fallback to a known safe relative path if default_dir is problematic, or error out
+                # For now, we assume default_dir is usable or test config handles it.
+            final_file_path_str = str(Path(default_dir) / filename_entity)
+            self.logger.info(f"使用文件名 '{filename_entity}' 和默认目录 '{default_dir}', 构造路径: {final_file_path_str}")
+
+        if not final_file_path_str:
+             self.speak("无法确定有效的文件路径。")
+             return "error: invalid_file_path_determination"
+
         try:
-            # 确保目录存在
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            abs_file_path = Path(final_file_path_str).resolve()
+            abs_file_path.parent.mkdir(parents=True, exist_ok=True)
             
-            with open(file_path, 'w', encoding='utf-8') as f:
+            with open(abs_file_path, 'w', encoding='utf-8') as f:
                 f.write(content)
                 
-            self.speak(f"文件已创建: {file_path}")
-            return f"file_created: {file_path}"
+            self.speak(f"文件已创建: {abs_file_path}")
+            return f"file_created: {abs_file_path}"
             
         except Exception as e:
-            error_msg = f"创建文件失败: {str(e)}"
+            resolved_path_for_error = abs_file_path if 'abs_file_path' in locals() else final_file_path_str
+            error_msg = f"创建文件 {resolved_path_for_error} 失败: {str(e)}"
             self.speak(error_msg)
+            self.logger.error(error_msg)
             return f"error: {str(e)}"
             
     def _create_folder(self, entities: Dict[str, Any]) -> str:
@@ -121,25 +141,41 @@ class FileTool(BaseTool):
             
     def _delete_file(self, entities: Dict[str, Any]) -> str:
         """删除文件"""
-        validation_error = self.validate_entities(['file_path'], entities)
-        if validation_error:
-            self.speak(validation_error)
-            return f"error: {validation_error}"
-            
-        file_path = entities['file_path']
-        
-        if not os.path.exists(file_path):
-            self.speak(f"文件不存在: {file_path}")
-            return f"error: file_not_found: {file_path}"
+        file_path_entity = entities.get('file_path')
+        filename_entity = entities.get('filename')
+
+        if not file_path_entity and not filename_entity:
+            self.speak("需要提供文件路径或文件名。")
+            return "error: missing_file_path_or_filename"
+
+        final_file_path_str = ""
+        if file_path_entity:
+            final_file_path_str = file_path_entity
+        elif filename_entity:
+            default_dir = self.config.get('FileTool', 'default_directory', fallback=str(Path.home() / 'Documents'))
+            # No need to create default_dir for delete, just resolve path
+            final_file_path_str = str(Path(default_dir) / filename_entity)
+            self.logger.info(f"使用文件名 '{filename_entity}' 和默认目录 '{default_dir}', 构造路径: {final_file_path_str}")
+
+        if not final_file_path_str:
+             self.speak("无法确定有效的文件路径。")
+             return "error: invalid_file_path_determination"
+
+        abs_file_path = Path(final_file_path_str).resolve()
+
+        if not abs_file_path.exists():
+            self.speak(f"文件不存在: {abs_file_path}")
+            return f"error: file_not_found: {abs_file_path}"
             
         try:
-            os.remove(file_path)
-            self.speak(f"文件已删除: {file_path}")
-            return f"file_deleted: {file_path}"
+            os.remove(abs_file_path)
+            self.speak(f"文件已删除: {abs_file_path}")
+            return f"file_deleted: {abs_file_path}"
             
         except Exception as e:
-            error_msg = f"删除文件失败: {str(e)}"
+            error_msg = f"删除文件 {abs_file_path} 失败: {str(e)}"
             self.speak(error_msg)
+            self.logger.error(error_msg)
             return f"error: {str(e)}"
             
     def _delete_folder(self, entities: Dict[str, Any]) -> str:

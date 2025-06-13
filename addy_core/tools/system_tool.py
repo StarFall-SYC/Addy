@@ -40,7 +40,8 @@ class SystemTool(BaseTool):
             'lock_screen',
             'get_battery_info',
             'set_volume',
-            'get_volume'
+            'get_volume',
+            'take_screenshot'
         ]
         
     def execute(self, intent: str, entities: Dict[str, Any], original_text: str) -> str:
@@ -78,6 +79,8 @@ class SystemTool(BaseTool):
                 return self._set_volume(entities)
             elif intent == 'get_volume':
                 return self._get_volume(entities)
+            elif intent == 'take_screenshot':
+                return self._take_screenshot(entities)
             else:
                 return f"不支持的系统操作: {intent}"
                 
@@ -433,6 +436,44 @@ class SystemTool(BaseTool):
         except Exception as e:
             error_msg = f"获取音量失败: {str(e)}"
             self.speak(error_msg)
+            return f"error: {str(e)}"
+
+    def _take_screenshot(self, entities: Dict[str, Any]) -> str:
+        """截屏"""
+        try:
+            # 尝试使用 desktop_controller 的截屏功能
+            if hasattr(self, 'desktop_controller') and self.desktop_controller:
+                screenshot_path = self.desktop_controller.capture_screen(filename_prefix="screenshot_")
+                if screenshot_path:
+                    self.speak(f"截图已保存到: {screenshot_path}")
+                    return f"screenshot_taken: {screenshot_path}"
+                else:
+                    self.speak("截屏失败")
+                    return "error: screenshot_failed"
+            else:
+                # 后备方案：直接调用系统命令 (示例，可能需要根据操作系统调整)
+                # 注意：这种方式可能不够健壮，且保存路径固定
+                import pyautogui # 确保已安装：pip install pyautogui Pillow
+                import time
+                from pathlib import Path
+
+                screenshots_dir = Path(self.config.get('paths', 'screenshots_dir', fallback='screenshots'))
+                screenshots_dir.mkdir(parents=True, exist_ok=True)
+                timestamp = time.strftime("%Y%m%d_%H%M%S")
+                filename = screenshots_dir / f"screenshot_{timestamp}.png"
+                
+                pyautogui.screenshot(str(filename))
+                self.speak(f"截图已保存到: {filename}")
+                return f"screenshot_taken: {filename}"
+
+        except ImportError:
+            self.speak("截屏功能需要 pyautogui 库，请先安装它 (pip install pyautogui Pillow)")
+            self.logger.error("pyautogui not found for screenshot")
+            return "error: pyautogui_not_found"
+        except Exception as e:
+            error_msg = f"截屏失败: {str(e)}"
+            self.speak(error_msg)
+            self.logger.error(f"Screenshot failed: {str(e)}", exc_info=True)
             return f"error: {str(e)}"
             
     def _start_service(self, entities: Dict[str, Any]) -> str:

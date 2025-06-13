@@ -5,6 +5,6 @@ from .openai_service import OpenAIService
 from .claude_service import ClaudeService
 from .tongyi_service import TongyiService
 from .gemini_service import GeminiService
-from .llm_service_factory import LLMServiceFactory
+from .llm_factory import LLMServiceFactory
 
 print("LLM Services Package Initialized")

@@ -337,11 +337,11 @@ class AssistantThread(QThread):
             self._is_running = False
             return
         
-        actual_keyword_paths = [WAKE_WORDS[word]['keyword_path'] for word in WAKE_WORDS if WAKE_WORDS[word]['keyword_path']]
+        actual_keyword_paths = [path.strip() for path in keyword_paths_str.split(',') if path.strip()]
         if not actual_keyword_paths:
-            self.log_message.emit(f"错误：在 {WAKE_WORDS} 中找不到有效的 Porcupine 唤醒词文件路径。请检查配置文件和唤醒词文件。")
-            self.speak_and_log("未找到有效的 Porcupine 唤醒词文件。")
-            self.status_update.emit("状态：错误 - 无有效唤醒词文件")
+            self.log_message.emit(f"错误：未能从配置的 'keyword_paths' ({keyword_paths_str}) 中解析出有效的 Porcupine 唤醒词文件路径。请检查配置文件。")
+            self.speak_and_log("未找到有效的 Porcupine 唤醒词文件路径。")
+            self.status_update.emit("状态：错误 - 无有效唤醒词文件路径")
             self._is_running = False
             return
 
@@ -367,7 +367,7 @@ class AssistantThread(QThread):
             self._is_running = False
             return
 
-        self.asr_module = ASRModule(config=self.config)
+        self.asr_module = ASRModule()
         
         # Initialize NLP Module with potential LLM service
         import json
@@ -423,13 +423,13 @@ class AssistantThread(QThread):
             self.log_message.emit(f"NLP引擎配置为 'rule_based'。")
 
         # 初始化 ToolManager
-        self.tool_manager = ToolManager(config=self.config, log_func=self.log_message.emit)
+        self.tool_manager = ToolManager(config=self.config, logger=None, speak_func=self.speak_and_log)
 
         self.nlp_module = NLPModule(
             config_path=get_config_path(), 
             llm_service=self.llm_service, 
             nlp_engine=nlp_engine_config,
-            tool_manager=self.tool_manager  # 传递 ToolManager 实例
+            tool_manager=self.tool_manager
         )
         self.task_executor = TaskExecutor(config=self.config, tts_engine_speak_func=self.speak_and_log, tool_manager=self.tool_manager)
 
@@ -450,7 +450,7 @@ class AssistantThread(QThread):
             except Exception as e:
                 self.log_message.emit(f"错误：打开 PyAudio 音频流失败: {e}")
                 self.speak_and_log("无法打开麦克风进行唤醒词检测。")
-                self.wake_word_detector = None # Disable if stream fails
+                self.wake_word_detector = None
                 self.cleanup_audio_resources()
 
         self.speak_and_log("Addy 语音助手已在后台启动。")
